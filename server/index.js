@@ -63,8 +63,17 @@ app.use((req, res) => {
 // MongoDB connection, cached so serverless invocations reuse it.
 let connectPromise = null;
 function connectDb() {
+  // Already connected — nothing to do.
   if (mongoose.connection.readyState === 1) return Promise.resolve();
-  if (connectPromise) return connectPromise;
+  // A connection is already in progress — wait for it, do not start another.
+  if (mongoose.connection.readyState === 2 && connectPromise) {
+    return connectPromise;
+  }
+  // readyState 0 (disconnected) or 3 (disconnecting), or a stale promise
+  // left over from a connection that has since dropped (e.g. a frozen
+  // serverless instance thawing with a dead socket): forget the old
+  // promise and start a fresh connection instead of reusing it.
+  connectPromise = null;
   const uri = process.env.MONGODB_URI;
   if (!uri) return Promise.reject(new Error("MONGODB_URI missing"));
   connectPromise = mongoose
@@ -75,6 +84,12 @@ function connectDb() {
     });
   return connectPromise;
 }
+
+// If the connection drops, forget the old promise so the next connectDb()
+// call reconnects instead of returning a dead, already-settled promise.
+mongoose.connection.on("disconnected", () => {
+  connectPromise = null;
+});
 
 async function start() {
   const uri = process.env.MONGODB_URI;
