@@ -7,6 +7,11 @@
 //   PORT            — default 5000
 // The server always starts, even with env vars missing — it reports what is
 // missing in plain words instead of crash-looping.
+//
+// Runs two ways:
+//   - node server/index.js (local / Render): connects to MongoDB and listens.
+//   - Vercel serverless (api/index.js requires this file): the app is
+//     exported and the database is connected lazily per request.
 
 require("dotenv").config();
 const express = require("express");
@@ -55,6 +60,22 @@ app.use((req, res) => {
   res.status(404).json({ error: "not_found", message: "Ye page nahi mila." });
 });
 
+// MongoDB connection, cached so serverless invocations reuse it.
+let connectPromise = null;
+function connectDb() {
+  if (mongoose.connection.readyState === 1) return Promise.resolve();
+  if (connectPromise) return connectPromise;
+  const uri = process.env.MONGODB_URI;
+  if (!uri) return Promise.reject(new Error("MONGODB_URI missing"));
+  connectPromise = mongoose
+    .connect(uri, { serverSelectionTimeoutMS: 10000 })
+    .catch((e) => {
+      connectPromise = null;
+      throw e;
+    });
+  return connectPromise;
+}
+
 async function start() {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
@@ -62,7 +83,7 @@ async function start() {
     console.log("[server] Login aur chat history ke liye MongoDB Atlas URI set karein (server/.env dekho).");
   } else {
     try {
-      await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+      await connectDb();
       console.log("[server] MongoDB connected.");
     } catch (e) {
       console.log("[server] MongoDB connect nahi hua:", e.message);
@@ -85,4 +106,11 @@ async function start() {
   });
 }
 
-start();
+// Only auto-start when run directly (node server/index.js).
+// When required by the Vercel serverless function, the app is exported
+// and the database is connected lazily per request instead.
+if (require.main === module) {
+  start();
+}
+
+module.exports = { app, connectDb };
