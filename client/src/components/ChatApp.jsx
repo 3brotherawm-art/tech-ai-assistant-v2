@@ -243,6 +243,20 @@ export default function ChatApp({ user, onLogout }) {
           {usage && (
             <div className="usage-box">
               <strong>Free: {usage.tokensLeft} tokens bache aaj</strong>
+              <div className="usage-line">
+                <div
+                  className="usage-line-fill"
+                  style={{
+                    width: `${Math.max(
+                      0,
+                      Math.min(
+                        100,
+                        (usage.tokensLeft / usage.tokensLimit) * 100
+                      )
+                    )}%`,
+                  }}
+                />
+              </div>
               <span>Rozana limit: {usage.tokensLimit} tokens</span>
             </div>
           )}
