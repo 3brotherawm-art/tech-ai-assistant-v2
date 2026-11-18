@@ -11,6 +11,27 @@ const { requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
 
+// Wait for a (re)connection before giving up — a frozen serverless
+// instance can thaw with a dead connection, and the first request after
+// that must not fail. The require is lazy: server/index.js requires this
+// route file, so a top-level require would read a half-loaded module.
+// connectDb() itself waits at most serverSelectionTimeoutMS (10s).
+async function ensureDb(res) {
+  try {
+    await require("../index.js").connectDb();
+  } catch (e) {
+    // Fall through to the readyState check below.
+  }
+  if (mongoose.connection.readyState !== 1) {
+    res.status(503).json({
+      error: "database_not_configured",
+      message: "Database abhi tayyar nahi.",
+    });
+    return false;
+  }
+  return true;
+}
+
 // POST /api/admin/login { password }
 // Admin password ONLY from process.env.ADMIN_PASSWORD — never in code.
 router.post("/login", (req, res) => {
@@ -47,12 +68,7 @@ router.post("/login", (req, res) => {
 // GET /api/admin/stats — totals only the admin can see.
 router.get("/stats", requireAdmin, async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "database_not_configured",
-        message: "Database abhi tayyar nahi.",
-      });
-    }
+    if (!(await ensureDb(res))) return;
     const [users, chats, messages] = await Promise.all([
       User.countDocuments({}),
       Chat.countDocuments({}),
@@ -70,12 +86,7 @@ router.get("/stats", requireAdmin, async (req, res) => {
 // GET /api/admin/users — recent users (admin only).
 router.get("/users", requireAdmin, async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "database_not_configured",
-        message: "Database abhi tayyar nahi.",
-      });
-    }
+    if (!(await ensureDb(res))) return;
     const users = await User.find({})
       .sort({ createdAt: -1 })
       .limit(50)
@@ -114,12 +125,7 @@ router.get("/users", requireAdmin, async (req, res) => {
 // GET /api/admin/messages — recent messages from ALL users (admin only).
 router.get("/messages", requireAdmin, async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "database_not_configured",
-        message: "Database abhi tayyar nahi.",
-      });
-    }
+    if (!(await ensureDb(res))) return;
     const messages = await Message.find({})
       .sort({ createdAt: -1 })
       .limit(100)

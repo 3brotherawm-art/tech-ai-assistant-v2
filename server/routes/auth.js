@@ -5,8 +5,18 @@ const User = require("../models/User");
 
 const router = express.Router();
 
-function dbReady(res) {
+async function dbReady(res) {
   const mongoose = require("mongoose");
+  // Try (re)connecting first — a frozen serverless instance can thaw with
+  // a dead connection, and the first request after that must not fail.
+  // The require is lazy: server/index.js requires this route file, so a
+  // top-level require would read a half-loaded module. connectDb() itself
+  // waits at most serverSelectionTimeoutMS (10s) — the wait is bounded.
+  try {
+    await require("../index.js").connectDb();
+  } catch (e) {
+    // Fall through to the readyState check below.
+  }
   if (mongoose.connection.readyState !== 1) {
     res.status(503).json({
       error: "database_not_configured",
@@ -48,7 +58,7 @@ function isEmail(value) {
 // POST /api/auth/register { name, email, password }
 router.post("/register", async (req, res) => {
   try {
-    if (!dbReady(res) || !jwtReady(res)) return;
+    if (!(await dbReady(res)) || !jwtReady(res)) return;
     const name = String(req.body && req.body.name ? req.body.name : "").trim();
     const email = String(req.body && req.body.email ? req.body.email : "")
       .trim()
@@ -94,7 +104,7 @@ router.post("/register", async (req, res) => {
 // POST /api/auth/login { email, password }
 router.post("/login", async (req, res) => {
   try {
-    if (!dbReady(res) || !jwtReady(res)) return;
+    if (!(await dbReady(res)) || !jwtReady(res)) return;
     const email = String(req.body && req.body.email ? req.body.email : "")
       .trim()
       .toLowerCase();

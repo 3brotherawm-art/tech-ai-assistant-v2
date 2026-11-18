@@ -40,7 +40,17 @@ const MAX_MSG_CHARS = 500;
 const MAX_HISTORY = 10;
 const MAX_TOTAL_CHARS = 4000;
 
-function dbReady(res) {
+async function dbReady(res) {
+  // Try (re)connecting first — a frozen serverless instance can thaw with
+  // a dead connection, and the first request after that must not fail.
+  // The require is lazy: server/index.js requires this route file, so a
+  // top-level require would read a half-loaded module. connectDb() itself
+  // waits at most serverSelectionTimeoutMS (10s) — the wait is bounded.
+  try {
+    await require("../index.js").connectDb();
+  } catch (e) {
+    // Fall through to the readyState check below.
+  }
   if (mongoose.connection.readyState !== 1) {
     res.status(503).json({
       error: "database_not_configured",
@@ -148,7 +158,7 @@ async function callGemini(history) {
 // - chatId given: continues that chat, only if it belongs to this user.
 router.post("/chat", requireAuth, async (req, res) => {
   try {
-    if (!dbReady(res)) return;
+    if (!(await dbReady(res))) return;
     const content = String(req.body && req.body.content ? req.body.content : "")
       .trim()
       .slice(0, MAX_MSG_CHARS);
@@ -277,7 +287,7 @@ router.post("/chat", requireAuth, async (req, res) => {
 // (messagesUsed is a stat only — no message limit exists.)
 router.get("/usage", requireAuth, async (req, res) => {
   try {
-    if (!dbReady(res)) return;
+    if (!(await dbReady(res))) return;
     const today = todayKey();
     const tokenLimit = freeTokenLimit();
     const usageDoc = await Usage.findOne({
@@ -304,7 +314,7 @@ router.get("/usage", requireAuth, async (req, res) => {
 // GET /api/chats — the logged-in user's own chats only, newest first.
 router.get("/chats", requireAuth, async (req, res) => {
   try {
-    if (!dbReady(res)) return;
+    if (!(await dbReady(res))) return;
     const chats = await Chat.find({ userId: req.user.id })
       .sort({ updatedAt: -1 })
       .limit(50)
@@ -328,7 +338,7 @@ router.get("/chats", requireAuth, async (req, res) => {
 // GET /api/chats/:id — one of the user's OWN chats with its messages.
 router.get("/chats/:id", requireAuth, async (req, res) => {
   try {
-    if (!dbReady(res)) return;
+    if (!(await dbReady(res))) return;
     const chat = await Chat.findOne({ _id: req.params.id, userId: req.user.id }).lean();
     if (!chat) {
       return res.status(404).json({ error: "not_found", message: "Ye chat nahi mili." });
@@ -365,7 +375,7 @@ router.get("/chats/:id", requireAuth, async (req, res) => {
 // DELETE /api/chats/:id — delete one of the user's OWN chats.
 router.delete("/chats/:id", requireAuth, async (req, res) => {
   try {
-    if (!dbReady(res)) return;
+    if (!(await dbReady(res))) return;
     const chat = await Chat.findOne({ _id: req.params.id, userId: req.user.id });
     if (!chat) {
       return res.status(404).json({ error: "not_found", message: "Ye chat nahi mili." });
