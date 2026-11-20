@@ -1,43 +1,33 @@
-// Flat Heera (diamond) logo mark — solid colours only, no gradients, no glow.
-// Used in the header, sidebar and chat avatars. Transparent background.
+// New Asad Tech logo (option 2, picked 2026-11-20): simple solid navy "A"
+// (Meta-style), replacing the old gold Heera diamond. Served as images
+// from /public so the mark stays pixel-identical everywhere.
+// DiamondMark = navy A on white (white backgrounds: sidebar, login, admin,
+// upgrade modal). DiamondTile = white A on navy #0F2A4A tile (topbar and
+// chat avatars, as the old navy tile was). Export names are unchanged so no
+// call site needed editing; only this file renders the mark.
 export function DiamondMark({ size = 40, className = "" }) {
   return (
-    <svg
+    <img
+      src="/logo.png"
       width={size}
       height={size}
-      viewBox="0 0 64 64"
       className={className}
-      aria-hidden="true"
-    >
-      <g>
-        <path d="M14 26 L22 12 L32 12 L32 26 Z" fill="#d9a441" />
-        <path d="M22 12 L42 12 L32 26 Z" fill="#f2c14e" />
-        <path d="M42 12 L50 26 L32 26 Z" fill="#c9922e" />
-        <path d="M14 26 L32 26 L32 52 Z" fill="#c9922e" />
-        <path d="M50 26 L32 26 L32 52 Z" fill="#e8b84b" />
-      </g>
-    </svg>
+      alt="Asad Tech logo"
+      draggable={false}
+    />
   );
 }
 
-// Same mark on a solid navy tile (for avatars / app icon style use).
 export function DiamondTile({ size = 36, className = "" }) {
   return (
-    <svg
+    <img
+      src="/logo-mark-navy.png"
       width={size}
       height={size}
-      viewBox="0 0 64 64"
       className={className}
-      aria-hidden="true"
-    >
-      <rect width="64" height="64" rx="14" fill="#0f2a4a" />
-      <g>
-        <path d="M14 26 L22 12 L32 12 L32 26 Z" fill="#d9a441" />
-        <path d="M22 12 L42 12 L32 26 Z" fill="#f2c14e" />
-        <path d="M42 12 L50 26 L32 26 Z" fill="#c9922e" />
-        <path d="M14 26 L32 26 L32 52 Z" fill="#c9922e" />
-        <path d="M50 26 L32 26 L32 52 Z" fill="#e8b84b" />
-      </g>
-    </svg>
+      alt="Asad Tech logo"
+      draggable={false}
+      style={{ borderRadius: Math.max(6, Math.round(size * 0.22)) }}
+    />
   );
 }
